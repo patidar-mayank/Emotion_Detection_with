@@ -1,7 +1,0 @@
-tensorflow 
-opencv-python
-retina-face 
-gdown
-deepface
-tf-keras
-torch torchvision torchaudio
