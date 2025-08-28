@@ -22,7 +22,7 @@ st.title("🎭 Real-time Emotion Detection with Anti-Spoofing (WebRTC)")
 # Video Processor
 # ---------------------
 class EmotionProcessor(VideoProcessorBase):
-    def _init_(self):
+    def __init__(self):
         self.frame_count = 0
         self.process_every_n_frames = 5
         self.last_status_text = "Waiting for face..."
