@@ -4,30 +4,25 @@ import warnings
 import av
 import cv2
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
+from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
 
-# ---------------------
-# Fix path for local deepface clone
-# ---------------------
-#sys.path.append(os.path.join(os.path.dirname(_file_), "deepface"))
+# Fix path if needed for local deepface clone
+# sys.path.append(os.path.join(os.path.dirname(__file__), "deepface"))
 
-# ✅ Correct import
 from deepface import DeepFace
 
 warnings.filterwarnings("ignore")
 
+st.set_page_config(page_title="Real-time Emotion Detection")
 st.title("🎭 Real-time Emotion Detection with Anti-Spoofing (WebRTC)")
 
-# ---------------------
-# Video Processor
-# ---------------------
-class EmotionProcessor(VideoProcessorBase):
+class EmotionProcessor(VideoTransformerBase):
     def __init__(self):
         self.frame_count = 0
         self.process_every_n_frames = 5
         self.last_status_text = "Waiting for face..."
 
-    def recv(self, frame):
+    def transform(self, frame: av.VideoFrame) -> av.VideoFrame:
         img = frame.to_ndarray(format="bgr24")
         self.frame_count += 1
 
@@ -52,33 +47,30 @@ class EmotionProcessor(VideoProcessorBase):
                         self.last_status_text = f"😊 {dominant_emotion}"
                         color = (0, 255, 0)
                 else:
-                    self.last_status_text = "⚠ No face detected."
+                    self.last_status_text = "⚠️ No face detected."
                     color = (255, 255, 0)
-
-                # Draw status text on frame
-                cv2.putText(
-                    img,
-                    self.last_status_text,
-                    (30, 40),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    color,
-                    2,
-                    cv2.LINE_AA,
-                )
 
             except Exception as e:
                 self.last_status_text = f"Error: {str(e)}"
-                cv2.putText(img, self.last_status_text, (30, 40),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                color = (0, 0, 255)
+
+        # Always draw the latest status
+        cv2.putText(
+            img,
+            self.last_status_text,
+            (30, 40),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            color,
+            2,
+            cv2.LINE_AA,
+        )
 
         return av.VideoFrame.from_ndarray(img, format="bgr24")
 
-# ---------------------
-# Run WebRTC
-# ---------------------
 webrtc_streamer(
     key="emotion-detector",
-    video_processor_factory=EmotionProcessor,
+    video_transformer_factory=EmotionProcessor,
     media_stream_constraints={"video": True, "audio": False},
+    async_transform=True
 )
