@@ -1,63 +1,84 @@
 import sys
 import os
 import warnings
-import streamlit as st
+import av
 import cv2
-#fic
+import streamlit as st
+from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
 
 # ---------------------
 # Fix path for local deepface clone
 # ---------------------
-sys.path.append(os.path.join(os.path.dirname(__file__), "deepface"))
+sys.path.append(os.path.join(os.path.dirname(_file_), "deepface"))
 
 # ✅ Correct import
 from deepface import DeepFace
 
 warnings.filterwarnings("ignore")
 
-st.title("🎭 Real-time Emotion Detection with Anti-Spoofing")
+st.title("🎭 Real-time Emotion Detection with Anti-Spoofing (WebRTC)")
 
-cap = cv2.VideoCapture(0)
+# ---------------------
+# Video Processor
+# ---------------------
+class EmotionProcessor(VideoProcessorBase):
+    def _init_(self):
+        self.frame_count = 0
+        self.process_every_n_frames = 5
+        self.last_status_text = "Waiting for face..."
 
-frame_placeholder = st.empty()
-status_placeholder = st.empty()
+    def recv(self, frame):
+        img = frame.to_ndarray(format="bgr24")
+        self.frame_count += 1
 
-frame_count = 0
-process_every_n_frames = 5
+        if self.frame_count % self.process_every_n_frames == 0:
+            try:
+                result = DeepFace.analyze(
+                    img,
+                    actions=['emotion'],
+                    enforce_detection=False,
+                    detector_backend='opencv',
+                    anti_spoofing=True
+                )
 
-while cap.isOpened():
-    ret, frame = cap.read()
-    if not ret:
-        st.error("⚠️ Failed to access webcam.")
-        break
+                if result and isinstance(result, list) and len(result) > 0:
+                    dominant_emotion = result[0]['dominant_emotion']
+                    spoofing_status = result[0].get("is_real", None)
 
-    frame_count += 1
-
-    try:
-        if frame_count % process_every_n_frames == 0:
-            result = DeepFace.analyze(
-                frame,
-                actions=['emotion'],
-                enforce_detection=False,
-                detector_backend='opencv',
-                anti_spoofing=True
-            )
-
-            if result and isinstance(result, list) and len(result) > 0:
-                dominant_emotion = result[0]['dominant_emotion']
-                spoofing_status = result[0].get("is_real", None)
-
-                if spoofing_status is False:
-                    status_placeholder.warning("🚨 Spoofing detected! (may be false alarm, check lighting)")
+                    if spoofing_status is False:
+                        self.last_status_text = "🚨 Spoofing detected!"
+                        color = (0, 0, 255)
+                    else:
+                        self.last_status_text = f"😊 {dominant_emotion}"
+                        color = (0, 255, 0)
                 else:
-                    status_placeholder.success(f"😊 Detected Emotion: **{dominant_emotion}**")
-            else:
-                status_placeholder.info("⚠️ No face detected. Please face the camera.")
+                    self.last_status_text = "⚠ No face detected."
+                    color = (255, 255, 0)
 
-        frame_placeholder.image(frame, channels="BGR")
+                # Draw status text on frame
+                cv2.putText(
+                    img,
+                    self.last_status_text,
+                    (30, 40),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1,
+                    color,
+                    2,
+                    cv2.LINE_AA,
+                )
 
-    except Exception as e:
-        status_placeholder.error(f"Error: {str(e)}")
-        continue
+            except Exception as e:
+                self.last_status_text = f"Error: {str(e)}"
+                cv2.putText(img, self.last_status_text, (30, 40),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
-cap.release()
+        return av.VideoFrame.from_ndarray(img, format="bgr24")
+
+# ---------------------
+# Run WebRTC
+# ---------------------
+webrtc_streamer(
+    key="emotion-detector",
+    video_processor_factory=EmotionProcessor,
+    media_stream_constraints={"video": True, "audio": False},
+)
