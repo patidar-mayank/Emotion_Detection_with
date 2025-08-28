@@ -9,7 +9,7 @@ from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
 # ---------------------
 # Fix path for local deepface clone
 # ---------------------
-sys.path.append(os.path.join(os.path.dirname(_file_), "deepface"))
+#sys.path.append(os.path.join(os.path.dirname(_file_), "deepface"))
 
 # ✅ Correct import
 from deepface import DeepFace
