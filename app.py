@@ -10,9 +10,6 @@ warnings.filterwarnings("ignore")
 
 st.title("🎭 Real-time Emotion Detection with Anti-Spoofing")
 
-# ---------------------
-# Video Processor
-# ---------------------
 class EmotionProcessor(VideoProcessorBase):
     def __init__(self):
         self.frame_count = 0
@@ -57,21 +54,17 @@ class EmotionProcessor(VideoProcessorBase):
         return av.VideoFrame.from_ndarray(img, format="bgr24")
 
 
-# ---------------------
-# Run WebRTC
-# ---------------------
+
 ctx = webrtc_streamer(
     key="emotion-detector",
     video_processor_factory=EmotionProcessor,
     media_stream_constraints={"video": True, "audio": False},
 )
 
-# ---------------------
-# Live Text Display (below webcam)
-# ---------------------
+
 status_placeholder = st.empty()
 
 if ctx.video_processor:
-    while ctx.state.playing:  # keep updating while webcam is active
+    while ctx.state.playing: 
         status_placeholder.markdown(f"### {ctx.video_processor.last_status_text}")
-        time.sleep(0.5)  # refresh every 0.5 sec
+        time.sleep(0.5) 
