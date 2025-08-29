@@ -8,7 +8,7 @@ import time
 
 warnings.filterwarnings("ignore")
 
-st.title("🎭 Real-time Emotion Detection with Anti-Spoofing")
+st.title("🎭Real-time Emotion Detection with Anti-Spoofing")
 
 class EmotionProcessor(VideoProcessorBase):
     def __init__(self):
@@ -34,7 +34,6 @@ class EmotionProcessor(VideoProcessorBase):
                     face_box = result[0].get("region", {})
                     w, h = face_box.get("w", 0), face_box.get("h", 0)
 
-                    # ✅ Ensure a valid face is present (ignore background false detections)
                     if w < 30 or h < 30:
                         self.last_status_text = "⚠ No person detected."
                     else:
@@ -42,9 +41,9 @@ class EmotionProcessor(VideoProcessorBase):
                         spoofing_status = result[0].get("is_real", None)
 
                         if spoofing_status is False:
-                            self.last_status_text = "🚨 Spoofing detected!"
+                            self.last_status_text = "Spoofing detected!"
                         else:
-                            self.last_status_text = f"😊 {dominant_emotion}"
+                            self.last_status_text = f"😊{dominant_emotion}"
                 else:
                     self.last_status_text = "⚠ No person detected."
 
@@ -61,9 +60,7 @@ ctx = webrtc_streamer(
     media_stream_constraints={"video": True, "audio": False},
 )
 
-
 status_placeholder = st.empty()
-
 if ctx.video_processor:
     while ctx.state.playing: 
         status_placeholder.markdown(f"### {ctx.video_processor.last_status_text}")
