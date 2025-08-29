@@ -1,22 +1,14 @@
-import sys
-import os
 import warnings
 import av
 import cv2
 import streamlit as st
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
-
-# ---------------------
-# Fix path for local deepface clone
-# ---------------------
-#sys.path.append(os.path.join(os.path.dirname(_file_), "deepface"))
-
-# ✅ Correct import
 from deepface import DeepFace
+import time
 
 warnings.filterwarnings("ignore")
 
-st.title("🎭 Real-time Emotion Detection with Anti-Spoofing (WebRTC)")
+st.title("🎭 Real-time Emotion Detection with Anti-Spoofing")
 
 # ---------------------
 # Video Processor
@@ -42,43 +34,44 @@ class EmotionProcessor(VideoProcessorBase):
                 )
 
                 if result and isinstance(result, list) and len(result) > 0:
-                    dominant_emotion = result[0]['dominant_emotion']
-                    spoofing_status = result[0].get("is_real", None)
+                    face_box = result[0].get("region", {})
+                    w, h = face_box.get("w", 0), face_box.get("h", 0)
 
-                    if spoofing_status is False:
-                        self.last_status_text = "🚨 Spoofing detected!"
-                        color = (0, 0, 255)
+                    # ✅ Ensure a valid face is present (ignore background false detections)
+                    if w < 30 or h < 30:
+                        self.last_status_text = "⚠ No person detected."
                     else:
-                        self.last_status_text = f"😊 {dominant_emotion}"
-                        color = (0, 255, 0)
-                else:
-                    self.last_status_text = "⚠ No face detected."
-                    color = (255, 255, 0)
+                        dominant_emotion = result[0]['dominant_emotion']
+                        spoofing_status = result[0].get("is_real", None)
 
-                # Draw status text on frame
-                cv2.putText(
-                    img,
-                    self.last_status_text,
-                    (30, 40),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    color,
-                    2,
-                    cv2.LINE_AA,
-                )
+                        if spoofing_status is False:
+                            self.last_status_text = "🚨 Spoofing detected!"
+                        else:
+                            self.last_status_text = f"😊 {dominant_emotion}"
+                else:
+                    self.last_status_text = "⚠ No person detected."
 
             except Exception as e:
                 self.last_status_text = f"Error: {str(e)}"
-                cv2.putText(img, self.last_status_text, (30, 40),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
         return av.VideoFrame.from_ndarray(img, format="bgr24")
+
 
 # ---------------------
 # Run WebRTC
 # ---------------------
-webrtc_streamer(
+ctx = webrtc_streamer(
     key="emotion-detector",
     video_processor_factory=EmotionProcessor,
     media_stream_constraints={"video": True, "audio": False},
 )
+
+# ---------------------
+# Live Text Display (below webcam)
+# ---------------------
+status_placeholder = st.empty()
+
+if ctx.video_processor:
+    while ctx.state.playing:  # keep updating while webcam is active
+        status_placeholder.markdown(f"### {ctx.video_processor.last_status_text}")
+        time.sleep(0.5)  # refresh every 0.5 sec
